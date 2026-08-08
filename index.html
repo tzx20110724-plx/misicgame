@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>流光音轨 · 无轨道下落音游</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1e;color:#e8ecff;
+  font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;user-select:none}
+body{overscroll-behavior:none}
+.screen{position:absolute;inset:0;display:none}
+.screen.active{display:flex}
+#app{position:fixed;inset:0;overflow:hidden;transition:transform .3s ease}
+body.landscape #app{width:100vh;height:100vw;top:50%;left:50%;
+  transform:translate(-50%,-50%) rotate(90deg)}
+#menu,#loading,#result{overflow-y:auto;overflow-x:hidden}
+#menu{flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  padding:24px;background:radial-gradient(1200px 700px at 50% -10%,#1b2350 0%,#0a0e1e 55%,#05060f 100%)}
+h1{font-size:clamp(26px,5vw,44px);font-weight:800;letter-spacing:2px;text-align:center;
+  background:linear-gradient(90deg,#38e8ff,#ff6fd8);-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 30px rgba(120,180,255,.35)}
+h1 small{display:block;font-size:13px;font-weight:400;color:#8fa0d0;letter-spacing:6px;margin-top:6px;
+  background:none;-webkit-background-clip:initial;background-clip:initial;color:#8fa0d0;text-shadow:none}
+.dropzone{position:relative;width:min(560px,92vw);border:2px dashed #3a4a8a;border-radius:16px;padding:26px 20px;
+  text-align:center;background:rgba(20,28,60,.45);transition:.2s}
+.dropzone.over{border-color:#38e8ff;background:rgba(56,232,255,.08)}
+#fileInput{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:1;border:0;margin:0;padding:0}
+#fileInput:hover{cursor:pointer}
+.dropzone .btn{position:relative;z-index:2}
+.fileinfo{font-size:14px;color:#aeb9e8;line-height:1.9;margin-top:14px}
+.fileinfo b{color:#38e8ff}
+.btn{display:inline-block;padding:11px 20px;border:none;border-radius:10px;font-size:15px;cursor:pointer;
+  background:#243055;color:#cdd7ff;transition:.15s;font-family:inherit}
+.btn:hover{background:#2e3c6e}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.primary{background:linear-gradient(90deg,#38e8ff,#4f6bff);color:#041018;font-weight:700}
+.btn.primary:hover:not(:disabled){filter:brightness(1.12)}
+.btn.big{font-size:19px;padding:14px 46px;border-radius:12px;box-shadow:0 6px 26px rgba(56,150,255,.35)}
+.controls{display:flex;flex-direction:column;gap:14px;align-items:center}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.row label{font-size:14px;color:#8fa0d0}
+input[type=number]{width:92px;padding:8px 10px;border-radius:8px;border:1px solid #3a4a8a;
+  background:#121a3a;color:#e8ecff;font-size:15px;text-align:center;outline:none}
+input[type=number]:focus{border-color:#38e8ff}
+.seg{display:flex;background:#121a3a;border-radius:10px;overflow:hidden;border:1px solid #3a4a8a}
+.seg button{padding:9px 22px;border:none;background:transparent;color:#aeb9e8;font-size:15px;cursor:pointer}
+.seg button.active{background:linear-gradient(90deg,#38e8ff,#4f6bff);color:#041018;font-weight:700}
+.help{width:min(620px,94vw);font-size:13px;color:#93a1cc;line-height:1.9;text-align:center}
+.help b{color:#cdd7ff}
+kbd{background:#1a2348;border:1px solid #3a4a8a;border-radius:5px;padding:1px 7px;font-family:inherit;color:#7ef29a}
+.n-tap{display:inline-block;width:28px;height:10px;border-radius:5px;background:#38e8ff;vertical-align:-1px;box-shadow:0 0 8px #38e8ff}
+.n-hold{display:inline-block;width:13px;height:18px;border-radius:5px;background:linear-gradient(#f36cff,#7a3dff);vertical-align:-4px}
+#loading{flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none}
+#loading .btn{pointer-events:auto}
+.loader{font-size:20px;color:#aeb9e8;letter-spacing:2px}
+.loader::after{content:"";display:inline-block;width:14px;height:14px;margin-left:12px;
+  border:3px solid #3a4a8a;border-top-color:#38e8ff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loadMsg{font-size:13px;color:#7c89b8;text-align:center;line-height:1.8}
+.errbanner{position:fixed;left:0;right:0;bottom:0;background:#ff3b3b;color:#fff;
+  font-size:13px;padding:10px 14px;z-index:999;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.errbanner button{float:right;background:rgba(255,255,255,.25);border:none;color:#fff;border-radius:6px;
+  padding:4px 12px;cursor:pointer;margin-left:10px;font-family:inherit}
+#game{display:none}
+#cv{display:block;touch-action:none}
+.count{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;
+  font-size:110px;font-weight:900;color:#fff;text-shadow:0 0 40px #38e8ff,0 0 80px #4f6bff}
+.count[hidden]{display:none}
+#result{flex-direction:column;align-items:center;justify-content:center;background:rgba(5,6,15,.9)}
+.card{width:min(420px,92vw);background:#10163a;border:1px solid #2c3a70;border-radius:20px;
+  padding:34px 30px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.rank{font-size:120px;font-weight:900;line-height:1;margin-bottom:6px}
+.rank.S{color:#ffd54a;text-shadow:0 0 30px #ffd54a}
+.rank.A{color:#7ef29a;text-shadow:0 0 30px #7ef29a}
+.rank.B{color:#5bc0ff;text-shadow:0 0 30px #5bc0ff}
+.rank.C{color:#ffb066;text-shadow:0 0 30px #ffb066}
+.rank.D{color:#9aa5cf;text-shadow:0 0 30px #9aa5cf}
+.card table{width:100%;margin:14px 0 22px;font-size:15px;border-collapse:collapse}
+.card td{padding:8px 6px;border-bottom:1px solid #1d2852;text-align:left;color:#aeb9e8}
+.card td:last-child{text-align:right;color:#e8ecff;font-weight:700}
+.btns{display:flex;gap:12px;justify-content:center}
+#chartInfo{color:#7ef29a}
+#pauseBtn{position:absolute;top:14px;right:14px;z-index:5;width:52px;height:52px;border-radius:50%;
+  border:none;background:rgba(20,28,60,.72);color:#e8ecff;font-size:22px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,.4)}
+#pauseBtn:hover{background:rgba(30,42,84,.85)}
+.pauselay{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:18px;background:rgba(5,6,15,.72);backdrop-filter:blur(3px)}
+.pauselay[hidden]{display:none}
+.pauselay .p-title{font-size:30px;font-weight:800;color:#e8ecff;letter-spacing:4px;margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<div id="menu" class="screen active">
+  <h1>流光音轨<small>TRACKLESS RHYTHM</small></h1>
+  <div class="dropzone" id="drop">
+    <div class="dz-inner" id="dzInner">
+      <p style="margin-bottom:14px;color:#aeb9e8">点击选择 / 拖拽导入音乐文件</p>
+      <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac">
+      <button class="btn primary" id="btnPick">选择音乐文件</button>
+      <button class="btn" id="btnDemo">试玩：内置合成音乐</button>
+    </div>
+    <div class="fileinfo" id="fileInfo" hidden></div>
+  </div>
+  <div class="controls">
+    <div class="row">
+      <label>BPM</label><input id="bpm" type="number" min="60" max="240" value="120" step="1">
+      <label>偏移 ms</label><input id="offset" type="number" value="0" step="10">
+    </div>
+    <div class="row">
+      <label>难度</label>
+      <div class="seg" id="diffSeg">
+        <button data-diff="easy">简</button>
+        <button data-diff="med" class="active">中</button>
+        <button data-diff="hard">难</button>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn primary big" id="btnPlay" disabled>开始游玩</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="btnLandscape">横屏模式：关</button>
+    </div>
+    <div class="fileinfo" id="chartInfo" hidden></div>
+  </div>
+  <div class="help">
+    <p><b>操作</b>：桌面用 <kbd>D</kbd>/<kbd>←</kbd> 打左半、<kbd>K</kbd>/<kbd>→</kbd> 打右半，也可用鼠标直接点音符；双押同时按两键即可。手机触屏直接点击 / 按住音符，可双手双押。</p>
+    <p><b>音符</b>：<span class="n-tap"></span> 点按　<span class="n-hold"></span> 长按（头到判定线时按住，条尾到达前别松手，中途松手=断连）　双押时会出现金色连线与"双押"提示</p>
+    <p style="opacity:.55;margin-top:10px">流光音轨 v1.4　·　如遇异常会在屏幕下方显示错误信息</p>
+  </div>
+</div>
+
+<div id="loading" class="screen">
+  <div class="loader" id="loadMsg">正在分析音乐…</div>
+  <button class="btn" id="btnCancelLoad">取消返回</button>
+</div>
+
+<div id="game" class="screen">
+  <canvas id="cv"></canvas>
+  <button id="pauseBtn" title="暂停">&#9208;</button>
+  <div class="count" id="countdown" hidden></div>
+  <div class="pauselay" id="pauseOverlay" hidden>
+    <div class="p-title">已暂停</div>
+    <button class="btn primary big" id="btnResume">继续</button>
+    <button class="btn" id="btnQuitPause">返回菜单</button>
+  </div>
+</div>
+
+<div id="result" class="screen">
+  <div class="card">
+    <div class="rank" id="rank">S</div>
+    <table>
+      <tr><td>分数</td><td id="rScore">0</td></tr>
+      <tr><td>最大连击</td><td id="rCombo">0</td></tr>
+      <tr><td>准确率</td><td id="rAcc">0%</td></tr>
+      <tr><td>Perfect / Good / Miss</td><td id="rCounts">0 / 0 / 0</td></tr>
+    </table>
+    <div class="btns">
+      <button class="btn primary" id="btnRetry">再来一次</button>
+      <button class="btn" id="btnMenu">返回菜单</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="errbanner" id="errBanner" hidden>
+  <button id="errClose">关闭</button>
+  <span id="errText"></span>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const AC = window.AudioContext || window.webkitAudioContext;
+const APPROACH = 1.6;
+const WINDOW_P = 0.09, WINDOW_G = 0.16;
+const DIFF_NAME = { easy: '简单', med: '中等', hard: '困难' };
+
+function showError(msg) {
+  $('errText').textContent = msg;
+  $('errBanner').hidden = false;
+}
+function hideError() {
+  $('errBanner').hidden = true;
+}
+window.addEventListener('error', e => {
+  showError('脚本错误: ' + (e.message || '未知') + '（第 ' + (e.lineno || '?') + ' 行）' + (e.filename ? ' @ ' + e.filename : ''));
+});
+window.addEventListener('unhandledrejection', e => {
+  showError('异步错误: ' + ((e.reason && (e.reason.message || e.reason)) || '未知'));
+});
+
+function roundRect(c, x, y, w, h, r) {
+  if (w <= 0 || h <= 0) return;
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+class FFT {
+  constructor(n) {
+    this.n = n;
+    this.re = new Float32Array(n);
+    this.im = new Float32Array(n);
+    const m = Math.round(Math.log2(n));
+    this.rev = new Uint32Array(n);
+    for (let i = 0; i < n; i++) {
+      let r = 0, x = i;
+      for (let b = 0; b < m; b++) { r = (r << 1) | (x & 1); x >>= 1; }
+      this.rev[i] = r;
+    }
+  }
+  forward(input) {
+    const n = this.n, re = this.re, im = this.im, rev = this.rev;
+    for (let i = 0; i < n; i++) { const r = rev[i]; re[r] = input[i]; im[r] = 0; }
+    for (let size = 2; size <= n; size <<= 1) {
+      const half = size >> 1, ang = -2 * Math.PI / size;
+      const wR = Math.cos(ang), wI = Math.sin(ang);
+      for (let i = 0; i < n; i += size) {
+        let cR = 1, cI = 0;
+        for (let j = 0; j < half; j++) {
+          const aR = re[i + j], aI = im[i + j];
+          const bR = re[i + j + half] * cR - im[i + j + half] * cI;
+          const bI = re[i + j + half] * cI + im[i + j + half] * cR;
+          re[i + j] = aR + bR; im[i + j] = aI + bI;
+          re[i + j + half] = aR - bR; im[i + j + half] = aI - bI;
+          const nR = cR * wR - cI * wI, nI = cR * wI + cI * wR;
+          cR = nR; cI = nI;
+        }
+      }
+    }
+  }
+}
+
+function onsetEnvelope(buffer, out) {
+  const sr = buffer.sampleRate;
+  const ch = buffer.numberOfChannels;
+  const len = buffer.length;
+  const mono = new Float32Array(len);
+  for (let c = 0; c < ch; c++) {
+    const d = buffer.getChannelData(c);
+    for (let i = 0; i < len; i++) mono[i] += d[i];
+  }
+  for (let i = 0; i < len; i++) mono[i] /= ch;
+  const fftSize = 1024, hop = 512;
+  const fft = new FFT(fftSize);
+  const win = new Float32Array(fftSize);
+  for (let i = 0; i < fftSize; i++) win[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (fftSize - 1)));
+  const frames = Math.max(0, Math.floor((len - fftSize) / hop));
+  const frame = new Float32Array(fftSize);
+  let prev = new Float32Array(fftSize / 2 + 1);
+  const flux = new Float32Array(frames);
+  for (let n = 0; n < frames; n++) {
+    for (let i = 0; i < fftSize; i++) frame[i] = mono[n * hop + i] * win[i];
+    fft.forward(frame);
+    let s = 0;
+    for (let k = 0; k <= fftSize / 2; k++) {
+      const mag = Math.sqrt(fft.re[k] * fft.re[k] + fft.im[k] * fft.im[k]);
+      const d = mag - prev[k]; if (d > 0) s += d;
+      prev[k] = mag;
+    }
+    flux[n] = s;
+  }
+  let mean = 0;
+  for (let n = 0; n < frames; n++) mean += flux[n];
+  mean /= Math.max(1, frames);
+  const onset = new Float32Array(frames);
+  let mx = 0;
+  for (let n = 0; n < frames; n++) {
+    let v = flux[n] - mean;
+    if (v < 0) v = 0;
+    onset[n] = v;
+    if (v > mx) mx = v;
+  }
+  if (mx > 0) for (let n = 0; n < frames; n++) onset[n] /= mx;
+  for (let it = 0; it < 2; it++) {
+    const p = Float32Array.from(onset);
+    for (let n = 1; n < frames - 1; n++) onset[n] = (p[n - 1] + 2 * p[n] + p[n + 1]) / 4;
+  }
+  out.frames = frames;
+  out.frameRate = sr / hop;
+  out.onset = onset;
+  return out;
+}
+
+function detectBPM(buffer, od) {
+  const frames = od.frames, frameRate = od.frameRate, o = od.onset;
+  if (frames < 200) return { bpm: null, offset: 0 };
+  const minBpm = 70, maxBpm = 200;
+  const minLag = frameRate * 60 / maxBpm, maxLag = frameRate * 60 / minBpm;
+  let bestLag = 0, bestScore = -1;
+  for (let lag = Math.max(4, Math.floor(minLag)); lag <= Math.ceil(maxLag); lag++) {
+    let s = 0;
+    for (let j = 0; j < frames - lag; j++) s += o[j] * o[j + lag];
+    s /= (frames - lag);
+    if (s > bestScore) { bestScore = s; bestLag = lag; }
+  }
+  if (!bestLag) return { bpm: null, offset: 0 };
+  const bpm = frameRate * 60 / bestLag;
+  const scoreBpm = (bp) => {
+    const bf = frameRate * 60 / bp;
+    const beats = Math.max(1, Math.floor(frames / bf));
+    let best = -1;
+    const steps = 24;
+    for (let oi = 0; oi < steps; oi++) {
+      const off = (oi / steps) * bf;
+      let s = 0;
+      for (let f = off, k = 0; k < beats; k++, f += bf) {
+        const fi = Math.round(f);
+        if (fi >= 0 && fi < frames) s += o[fi];
+      }
+      s /= beats;
+      if (s > best) best = s;
+    }
+    return best;
+  };
+  const cands = [bpm, bpm / 2, bpm * 2, bpm / 4, bpm * 4];
+  const scored = [];
+  for (const c of cands) {
+    if (c >= minBpm && c <= maxBpm) scored.push({ c, sc: scoreBpm(c) });
+  }
+  if (!scored.length) return { bpm: null, offset: 0 };
+  scored.sort((a, b) => b.sc - a.sc);
+  let best = scored[0].c;
+  if (scored.length > 1 && scored[1].sc > scored[0].sc * 0.94) {
+    const comf = scored.filter(s => s.c >= 95 && s.c <= 165);
+    if (comf.length) best = comf[0].c;
+  }
+  const bf = frameRate * 60 / best;
+  let bestOff = 0, bestS = -1;
+  const steps = 48;
+  const beats = Math.max(1, Math.floor(frames / bf));
+  for (let oi = 0; oi < steps; oi++) {
+    const off = (oi / steps) * bf;
+    let s = 0;
+    for (let f = off, k = 0; k < beats; k++, f += bf) {
+      const fi = Math.round(f);
+      if (fi < frames) s += o[fi];
+    }
+    s /= beats;
+    if (s > bestS) { bestS = s; bestOff = off; }
+  }
+  return { bpm: best, offset: bestOff / frameRate };
+}
+
+function computeAccents(od, bpm, offset, dur) {
+  const beat = 60 / bpm;
+  const acc = [];
+  for (let t = offset; t < dur; t += beat) {
+    const f0 = Math.floor((t - 0.05) * od.frameRate);
+    const f1 = Math.floor((t + 0.18) * od.frameRate);
+    let s = 0;
+    for (let f = f0; f <= f1; f++) if (f >= 0 && f < od.onset.length) s += od.onset[f];
+    acc.push(s);
+  }
+  let mx = 0.0001;
+  for (const v of acc) if (v > mx) mx = v;
+  return acc.map(v => Math.min(1, v / (mx * 0.7)));
+}
+
+function synthAccents(bpm, offset, dur) {
+  const beat = 60 / bpm;
+  const acc = [];
+  for (let t = offset, i = 0; t < dur; t += beat, i++) {
+    acc.push(i % 4 === 0 ? 1 : (i % 4 === 2 ? 0.45 : 0.15));
+  }
+  return acc;
+}
+
+const randX = half => half === 'L' ? 0.10 + Math.random() * 0.36 : 0.54 + Math.random() * 0.36;
+
+function holdLen(bpm, diff) {
+  const beat = 60 / bpm;
+  const beats = diff === 'easy' ? 1 : diff === 'med' ? (Math.random() < 0.5 ? 1 : 2) : [1, 1, 2, 2, 3][Math.floor(Math.random() * 5)];
+  return beats * beat;
+}
+
+function genChart(bpm, offset, dur, accents, diff) {
+  const beat = 60 / bpm;
+  const step = diff === 'easy' ? beat : diff === 'med' ? beat / 2 : beat / 4;
+  const minGap = diff === 'easy' ? 0.55 : diff === 'med' ? 0.33 : 0.20;
+  const doubleChance = diff === 'easy' ? 0.06 : diff === 'med' ? 0.16 : 0.30;
+  const holdChance = diff === 'easy' ? 0.14 : diff === 'med' ? 0.20 : 0.25;
+  const end = dur - 0.4;
+  if (end <= 1) return [];
+  const notes = [];
+  const active = [];
+  let lastT = -10;
+  const accAt = t => {
+    const idx = Math.floor((t - offset) / beat);
+    if (idx >= 0 && idx < accents.length) return accents[idx];
+    return 0.4;
+  };
+  for (let t = Math.max(offset, 0); t < end; t += step) {
+    const a = accAt(t);
+    const p = diff === 'easy' ? (a > 0.55 ? 0.85 : 0.28)
+      : diff === 'med' ? (a > 0.55 ? 1 : 0.55)
+      : (a > 0.55 ? 1 : 0.72);
+    if (Math.random() > p) continue;
+    if (t - lastT < minGap - 1e-9) continue;
+    const busy = { L: false, R: false };
+    for (const h of active) if (t <= h.end) busy[h.half] = true;
+    const freeL = !busy.L, freeR = !busy.R;
+    if (!freeL && !freeR) continue;
+    const isDouble = freeL && freeR && Math.random() < doubleChance * (diff === 'hard' ? (0.5 + a) : 1);
+    const doHold = Math.random() < holdChance;
+    if (isDouble) {
+      const n1 = { type: 'tap', t, x: randX('L'), half: 'L' };
+      const n2 = { type: 'tap', t, x: randX('R'), half: 'R' };
+      if (doHold && t + beat * 2 <= end) {
+        const len = holdLen(bpm, diff);
+        n1.type = 'hold';
+        n1.dur = len;
+        active.push({ half: 'L', start: t, end: t + len });
+      }
+      notes.push(n1, n2);
+      lastT = t;
+      continue;
+    }
+    const half = freeL && freeR ? (Math.random() < 0.5 ? 'L' : 'R') : (freeL ? 'L' : 'R');
+    if (doHold) {
+      let len = holdLen(bpm, diff);
+      if (t + len > end) len = Math.min(len, end - t);
+      if (len < 0.25) {
+        notes.push({ type: 'tap', t, x: randX(half), half });
+      } else {
+        notes.push({ type: 'hold', t, dur: len, x: randX(half), half });
+        active.push({ half, start: t, end: t + len });
+      }
+      lastT = t;
+    } else {
+      notes.push({ type: 'tap', t, x: randX(half), half });
+      lastT = t;
+    }
+  }
+  notes.sort((a, b) => a.t - b.t);
+  return notes;
+}
+
+function synthDemo(bpm, durSec) {
+  const sr = 44100, n = Math.floor(sr * durSec);
+  const buf = new Float32Array(n);
+  const beat = 60 / bpm;
+  const bar = 4 * beat;
+  const twoPi = 2 * Math.PI;
+  const addKick = (t, amp) => {
+    const s0 = Math.floor(t * sr), L = Math.floor(0.30 * sr);
+    let ph = 0;
+    for (let i = 0; i < L && s0 + i < n; i++) {
+      const tt = i / sr;
+      ph += twoPi * (45 + 60 * Math.exp(-tt * 22)) / sr;
+      buf[s0 + i] += amp * Math.exp(-tt * 9) * Math.sin(ph) * 0.9;
+    }
+  };
+  const addNoise = (t, amp, dur) => {
+    const s0 = Math.floor(t * sr), L = Math.floor(dur * sr);
+    for (let i = 0; i < L && s0 + i < n; i++) {
+      const tt = i / sr;
+      buf[s0 + i] += amp * Math.exp(-tt * 8) * (Math.random() * 2 - 1);
+    }
+  };
+  const addTone = (t, f, dur, amp) => {
+    const s0 = Math.floor(t * sr), L = Math.floor(dur * sr);
+    let ph = 0;
+    for (let i = 0; i < L && s0 + i < n; i++) {
+      const tt = i / sr;
+      ph += twoPi * f / sr;
+      buf[s0 + i] += amp * Math.exp(-tt * 2) * Math.sin(ph);
+    }
+  };
+  const totalBeats = Math.floor(durSec / beat);
+  for (let b = 0; b < totalBeats; b++) {
+    const t = b * beat;
+    addKick(t, 0.9);
+    if (b % 4 === 2 || b % 4 === 3) addNoise(t, 0.22, 0.12);
+    if (b % 4 === 1 || b % 4 === 3) {
+      addNoise(t, 0.5, 0.16);
+      addTone(t, 190, 0.1, 0.2);
+    }
+  }
+  const chords = [
+    [220, 277.18, 329.63],
+    [174.61, 220, 261.63],
+    [196, 246.94, 293.66],
+    [164.81, 207.65, 246.94]
+  ];
+  for (let b = 0; b < Math.floor(durSec / bar); b++) {
+    const c = chords[b % 4];
+    for (const f of c) addTone(b * bar, f, 1.5, 0.11);
+  }
+  let mx = 0;
+  for (let i = 0; i < n; i++) if (Math.abs(buf[i]) > mx) mx = Math.abs(buf[i]);
+  if (mx > 0) for (let i = 0; i < n; i++) buf[i] /= mx;
+  const out = audioCtx.createBuffer(1, n, sr);
+  out.copyToChannel(buf, 0);
+  return out;
+}
+
+let audioCtx = null;
+let buffer = null;
+let songDur = 0;
+let songName = '';
+let analyzed = null;
+let chart = [];
+let diff = 'med';
+let game = null;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new AC(); } catch (e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    try {
+      const p = audioCtx.resume();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+}
+
+const cv = $('cv');
+const c2 = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+let landscape = false;
+const judgmentY = h => h * 0.78;
+const spawnY = () => H * 0.08;
+
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  const vw = window.innerWidth, vh = window.innerHeight;
+  W = landscape ? vh : vw;
+  H = landscape ? vw : vh;
+  cv.width = W * DPR;
+  cv.height = H * DPR;
+  cv.style.width = W + 'px';
+  cv.style.height = H + 'px';
+}
+resize();
+window.addEventListener('resize', resize);
+
+function localXY(clientX, clientY) {
+  if (!landscape) return { x: clientX, y: clientY };
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const appW = vh, appH = vw;
+  return {
+    x: appW / 2 + (clientY - vh / 2),
+    y: appH / 2 + (vw / 2 - clientX)
+  };
+}
+
+function toggleLandscape() {
+  landscape = !landscape;
+  document.body.classList.toggle('landscape', landscape);
+  $('btnLandscape').textContent = '横屏模式：' + (landscape ? '开' : '关');
+  resize();
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $('menu').style.display = 'none';
+  $('loading').style.display = 'none';
+  $('game').style.display = 'none';
+  $('result').style.display = 'none';
+  $('pauseOverlay').hidden = true;
+  if (name === 'menu') { $('menu').classList.add('active'); $('menu').style.display = 'flex'; }
+  else if (name === 'loading') { $('loading').classList.add('active'); $('loading').style.display = 'flex'; }
+  else if (name === 'game') { $('game').classList.add('active'); $('game').style.display = 'block'; }
+  else { $('result').classList.add('active'); $('result').style.display = 'flex'; }
+}
+
+function refreshChartInfo() {
+  if (!buffer) return;
+  generate();
+  const f = $('chartInfo');
+  f.hidden = false;
+  f.innerHTML = '谱面已生成 · <b>' + chart.length + '</b> 个音符 · 难度 ' + DIFF_NAME[diff];
+}
+
+function generate() {
+  const bp = clamp(parseFloat($('bpm').value) || 120, 60, 240);
+  const off = (parseFloat($('offset').value) || 0) / 1000;
+  let accents;
+  if (analyzed) accents = computeAccents(analyzed, bp, off, songDur);
+  else accents = synthAccents(bp, off, songDur);
+  chart = genChart(bp, off, songDur, accents, diff);
+}
+
+function analyze(buf) {
+  const od = {};
+  onsetEnvelope(buf, od);
+  const r = detectBPM(buf, od);
+  if (r.bpm) {
+    $('bpm').value = Math.round(r.bpm);
+    $('offset').value = Math.round(r.offset * 1000);
+    analyzed = od;
+  } else {
+    analyzed = null;
+    $('offset').value = 0;
+  }
+  songDur = buf.duration;
+  $('btnPlay').disabled = false;
+  refreshChartInfo();
+  const det = r.bpm ? ('自动检测 BPM <b>' + Math.round(r.bpm) + '</b>') : '自动检测失败，请手动输入 BPM';
+  $('fileInfo').innerHTML = '已加载: <b>' + songName + '</b><br>' + det +
+    '　时长 <b>' + songDur.toFixed(1) + '</b> 秒';
+}
+
+async function loadFile(file) {
+  ensureAudio();
+  showScreen('loading');
+  $('loadMsg').textContent = '正在分析音乐，较长的音乐会需要几秒…';
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    const ab = await file.arrayBuffer();
+    buffer = await audioCtx.decodeAudioData(ab);
+    songName = file.name;
+    analyze(buffer);
+  } catch (e) {
+    showError('音乐文件处理失败：' + (e && e.message ? e.message : e));
+  } finally {
+    showScreen('menu');
+  }
+}
+
+function startDemo() {
+  ensureAudio();
+  showScreen('loading');
+  $('loadMsg').textContent = '正在生成试玩音乐…';
+  setTimeout(() => {
+    try {
+      buffer = synthDemo(128, 70);
+      songName = '试玩 · 内置合成音乐';
+      analyze(buffer);
+    } catch (e) {
+      showError('试玩音乐生成失败：' + (e && e.message ? e.message : e));
+    } finally {
+      showScreen('menu');
+    }
+  }, 60);
+}
+
+$('btnPick').addEventListener('click', () => {
+  ensureAudio();
+  $('fileInput').click();
+});
+$('fileInput').addEventListener('click', e => {
+  e.stopPropagation();
+  ensureAudio();
+});
+$('fileInput').addEventListener('change', e => {
+  if (e.target.files.length) loadFile(e.target.files[0]);
+  e.target.value = '';
+});
+const drop = $('drop');
+['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault();
+  drop.classList.add('over');
+}));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault();
+  drop.classList.remove('over');
+}));
+drop.addEventListener('drop', e => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+$('btnDemo').addEventListener('click', () => {
+  ensureAudio();
+  startDemo();
+});
+$('btnCancelLoad').addEventListener('click', () => {
+  showScreen('menu');
+});
+$('errClose').addEventListener('click', hideError);
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const scr = document.querySelector('.screen.active');
+    if (scr && scr.id === 'loading') showScreen('menu');
+  }
+});
+
+$('diffSeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  diff = b.dataset.diff;
+  document.querySelectorAll('#diffSeg button').forEach(x => x.classList.toggle('active', x === b));
+  if (buffer) refreshChartInfo();
+});
+['bpm', 'offset'].forEach(id => $(id).addEventListener('change', () => {
+  if (buffer) refreshChartInfo();
+}));
+
+$('btnPlay').addEventListener('click', () => {
+  if (!buffer) { showError('请先导入音乐或使用试玩模式'); return; }
+  ensureAudio();
+  refreshChartInfo();
+  startGame();
+});
+$('btnRetry').addEventListener('click', startGame);
+$('btnMenu').addEventListener('click', quitToMenu);
+$('btnLandscape').addEventListener('click', toggleLandscape);
+$('pauseBtn').addEventListener('click', () => {
+  if (!game || !game.playing || game.over) return;
+  if (game.paused) resumeGame(); else pauseGame();
+});
+$('btnResume').addEventListener('click', resumeGame);
+$('btnQuitPause').addEventListener('click', quitToMenu);
+
+function pauseGame() {
+  if (!game || !game.playing || game.over || game.paused) return;
+  game.paused = true;
+  if (audioCtx && audioCtx.state === 'running') {
+    try {
+      const p = audioCtx.suspend();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+  $('pauseOverlay').hidden = false;
+  $('pauseBtn').textContent = '\u25B6';
+}
+
+function resumeGame() {
+  if (!game || !game.paused) return;
+  game.paused = false;
+  if (audioCtx && audioCtx.state === 'suspended') {
+    try {
+      const p = audioCtx.resume();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+  $('pauseOverlay').hidden = true;
+  $('pauseBtn').textContent = '\u23F8';
+}
+
+function quitToMenu() {
+  if (game && game.src) { try { game.src.stop(); } catch (e) {} }
+  game = null;
+  $('pauseOverlay').hidden = true;
+  $('pauseBtn').textContent = '\u23F8';
+  showScreen('menu');
+}
+
+function startGame() {
+  if (!chart.length) { showError('谱面为空，请换一首更长的音乐'); return; }
+  ensureAudio();
+  if (!audioCtx) { showError('无法创建音频设备'); return; }
+  if (game && game.src) { try { game.src.stop(); } catch (e) {} }
+  game = {
+    notes: chart.map(n => Object.assign({}, n, {
+      judged: false, grade: null, headGrade: null, holding: false
+    })),
+    playing: false,
+    paused: false,
+    over: false,
+    t0: 0,
+    score: 0, combo: 0, maxCombo: 0,
+    perfect: 0, good: 0, miss: 0,
+    activeHolds: { L: null, R: null },
+    pointerHolds: new Map(),
+    fx: [],
+    src: null
+  };
+  showScreen('game');
+  $('pauseOverlay').hidden = true;
+  $('pauseBtn').style.display = '';
+  $('pauseBtn').textContent = '\u23F8';
+  const el = $('countdown');
+  el.hidden = false;
+  let n = 3;
+  const tick = () => {
+    if (n > 0) {
+      el.textContent = n;
+      n--;
+      setTimeout(tick, 700);
+    } else {
+      el.textContent = 'GO!';
+      setTimeout(() => {
+        el.hidden = true;
+        el.textContent = '';
+        const src = audioCtx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(audioCtx.destination);
+        const startAt = audioCtx.currentTime + 0.06;
+        src.start(startAt);
+        game.playing = true;
+        game.t0 = startAt;
+        game.src = src;
+      }, 420);
+    }
+  };
+  tick();
+}
+
+const songTime = () => game && game.playing ? audioCtx.currentTime - game.t0 : 0;
+
+function judgeHead(n, t) {
+  const d = Math.abs(n.t - t);
+  if (d > WINDOW_G) return null;
+  if (d <= WINDOW_P) return 'perfect';
+  return 'good';
+}
+
+function bestNote(half, t, x) {
+  let best = null, bd = 1e9;
+  for (const n of game.notes) {
+    if (n.judged || n.half !== half || n.holding) continue;
+    if (Math.abs(n.t - t) > WINDOW_G) continue;
+    if (x != null && Math.abs(n.x - x) > 0.12) continue;
+    const d = Math.abs(n.t - t);
+    if (d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
+
+function hitNote(n, t) {
+  const gr = judgeHead(n, t);
+  if (!gr) return;
+  if (n.type === 'tap') {
+    n.judged = true;
+    n.grade = gr;
+    game.combo++;
+    game.maxCombo = Math.max(game.maxCombo, game.combo);
+    game.score += gr === 'perfect' ? 1000 : 600;
+    if (gr === 'perfect') game.perfect++; else game.good++;
+    spawnFx(n, 'hit', gr);
+  } else {
+    n.holding = true;
+    n.headGrade = gr;
+    game.activeHolds[n.half] = n;
+    spawnFx(n, 'hit', gr);
+  }
+}
+
+function markMiss(n) {
+  if (n.judged) return;
+  n.judged = true;
+  n.grade = 'miss';
+  game.miss++;
+  game.combo = 0;
+  spawnFx(n, 'miss');
+}
+
+function completeHold(n) {
+  n.judged = true;
+  n.grade = n.headGrade;
+  n.holding = false;
+  game.activeHolds[n.half] = null;
+  game.combo++;
+  game.maxCombo = Math.max(game.maxCombo, game.combo);
+  game.score += (n.headGrade === 'perfect' ? 1000 : 600) + 500;
+  if (n.headGrade === 'perfect') game.perfect++; else game.good++;
+  spawnFx(n, 'hold', n.headGrade);
+}
+
+function releaseHold(half, t) {
+  const n = game.activeHolds[half];
+  if (!n) return;
+  game.activeHolds[half] = null;
+  if (t >= n.t + n.dur) {
+    completeHold(n);
+  } else {
+    n.judged = true;
+    n.grade = 'miss';
+    n.holding = false;
+    game.miss++;
+    game.combo = 0;
+    spawnFx(n, 'break');
+  }
+}
+
+const isLeftKey = k => k === 'd' || k === 'D' || k === 'ArrowLeft' || k === 'a' || k === 'A';
+const isRightKey = k => k === 'k' || k === 'K' || k === 'ArrowRight' || k === 'l' || k === 'L';
+
+window.addEventListener('keydown', e => {
+  if (!game || !game.playing || game.over) return;
+  const k = e.key;
+  if (k === 'Escape') {
+    e.preventDefault();
+    if (game.paused) resumeGame(); else pauseGame();
+    return;
+  }
+  if (game.paused) return;
+  if (e.repeat) return;
+  if (isLeftKey(k)) { hitByKey('L'); e.preventDefault(); }
+  else if (isRightKey(k)) { hitByKey('R'); e.preventDefault(); }
+  else if (k === 'r' || k === 'R') { e.preventDefault(); startGame(); }
+});
+window.addEventListener('keyup', e => {
+  if (!game || !game.playing || game.over || game.paused) return;
+  const k = e.key;
+  if (isLeftKey(k)) releaseHold('L', songTime());
+  else if (isRightKey(k)) releaseHold('R', songTime());
+});
+
+function hitByKey(half) {
+  const t = songTime();
+  const n = bestNote(half, t, null);
+  if (n) hitNote(n, t);
+}
+
+cv.addEventListener('pointerdown', e => {
+  if (!game || !game.playing || game.over || game.paused) return;
+  const t = songTime();
+  const p = localXY(e.clientX, e.clientY);
+  const x = p.x / W;
+  let best = null, bd = 1e9, bh = null;
+  for (const half of ['L', 'R']) {
+    const n = bestNote(half, t, x);
+    if (n) {
+      const d = Math.abs(n.t - t);
+      if (d < bd) { bd = d; best = n; bh = half; }
+    }
+  }
+  if (!best) return;
+  hitNote(best, t);
+  if (best.type === 'hold') {
+    if (!game.pointerHolds.has(e.pointerId)) game.pointerHolds.set(e.pointerId, bh);
+  }
+});
+function pointerEnd(e) {
+  if (!game || !game.playing || game.paused) return;
+  const half = game.pointerHolds.get(e.pointerId);
+  if (half) {
+    game.pointerHolds.delete(e.pointerId);
+    releaseHold(half, songTime());
+  }
+}
+cv.addEventListener('pointerup', pointerEnd);
+cv.addEventListener('pointercancel', pointerEnd);
+
+function spawnFx(n, kind, grade) {
+  const x = n.x * W, y = judgmentY(H);
+  if (kind === 'hit') {
+    const col = grade === 'perfect' ? '#ffd54a' : '#7ef29a';
+    const txt = grade === 'perfect' ? 'Perfect!' : 'Good';
+    game.fx.push({ type: 'text', x, y: y - 34, text: txt, color: col, vx: 0, vy: 70, life: 0.8 });
+    for (let i = 0; i < 14; i++) {
+      const a = i / 14 * Math.PI * 2;
+      const sp = 120 + Math.random() * 180;
+      game.fx.push({
+        type: 'part', x, y, color: col,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0.5 + Math.random() * 0.3, r: 2 + Math.random() * 3
+      });
+    }
+  } else if (kind === 'miss' || kind === 'break') {
+    const txt = kind === 'miss' ? 'Miss' : '断连';
+    game.fx.push({ type: 'text', x, y: y - 34, text: txt, color: '#ff6b6b', vx: 0, vy: 70, life: 0.8 });
+  } else if (kind === 'hold') {
+    game.fx.push({ type: 'text', x, y: y - 44, text: '长按完成', color: '#c8a2ff', vx: 0, vy: 45, life: 0.9 });
+  }
+}
+
+function drawFx(dt) {
+  if (!game.fx.length) return;
+  game.fx = game.fx.filter(f => f.life > 0);
+  for (const f of game.fx) {
+    f.life -= dt;
+    f.y -= f.vy * dt;
+    f.vy *= 0.94;
+    f.x += f.vx * dt;
+    const a = clamp(f.life / 0.7, 0, 1);
+    c2.save();
+    c2.globalAlpha = a;
+    if (f.type === 'part') {
+      c2.fillStyle = f.color;
+      c2.beginPath();
+      c2.arc(f.x, f.y, f.r * a, 0, 7);
+      c2.fill();
+    } else {
+      c2.font = 'bold 26px sans-serif';
+      c2.textAlign = 'center';
+      c2.shadowColor = f.color;
+      c2.shadowBlur = 12;
+      c2.fillText(f.text, f.x, f.y);
+    }
+    c2.restore();
+  }
+}
+
+function drawJudgmentLine(t) {
+  const y = judgmentY(H);
+  const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+  c2.save();
+  c2.shadowColor = '#ff6fd8';
+  c2.shadowBlur = 20;
+  c2.fillStyle = 'rgba(255,111,216,0.85)';
+  c2.fillRect(0, y - 2, W, 4);
+  c2.fillStyle = 'rgba(255,111,216,' + (0.12 + 0.12 * pulse).toFixed(3) + ')';
+  c2.fillRect(0, y - 12, W, 24);
+  c2.restore();
+}
+
+function noteLineW() {
+  return Math.min(96, Math.max(64, W * 0.16));
+}
+
+function drawTap(x, y) {
+  const w = noteLineW(), h = 16;
+  c2.save();
+  c2.shadowColor = '#38e8ff';
+  c2.shadowBlur = 18;
+  c2.fillStyle = 'rgba(56,232,255,0.25)';
+  roundRect(c2, x - w / 2 - 5, y - h / 2 - 5, w + 10, h + 10, 13);
+  c2.fill();
+  c2.fillStyle = '#4ff';
+  roundRect(c2, x - w / 2, y - h / 2, w, h, 8);
+  c2.fill();
+  c2.fillStyle = '#dfffff';
+  roundRect(c2, x - w / 2 + 6, y - h / 2 + 3, w - 12, h - 6, 5);
+  c2.fill();
+  c2.restore();
+}
+
+function drawDoubleHints(t) {
+  const jy = judgmentY(H), span = jy - spawnY();
+  for (let i = 0; i < game.notes.length; i++) {
+    const a = game.notes[i];
+    if (a.judged) continue;
+    for (let j = i + 1; j < game.notes.length; j++) {
+      const b = game.notes[j];
+      if (b.judged) continue;
+      if (Math.abs(a.t - b.t) > 0.03) continue;
+      const d = a.t - t;
+      if (d > 1.0 || d < -0.2) continue;
+      const y = jy - (a.t - t) / APPROACH * span;
+      const alpha = d <= 0.2 ? 1 : clamp(1 - (d - 0.2) / 0.8, 0.15, 1);
+      const x1 = a.x * W, x2 = b.x * W;
+      c2.save();
+      c2.globalAlpha = alpha;
+      c2.strokeStyle = '#ffd54a';
+      c2.lineWidth = 3;
+      c2.shadowColor = '#ffd54a';
+      c2.shadowBlur = 10;
+      c2.beginPath();
+      c2.moveTo(x1, y);
+      c2.lineTo(x2, y);
+      c2.moveTo(x1, y);
+      c2.lineTo(x1, y + 13);
+      c2.moveTo(x2, y);
+      c2.lineTo(x2, y + 13);
+      c2.stroke();
+      c2.font = 'bold 20px sans-serif';
+      c2.textAlign = 'center';
+      c2.fillStyle = '#ffd54a';
+      c2.fillText('双押', (x1 + x2) / 2, y - 12);
+      c2.restore();
+      return;
+    }
+  }
+}
+
+function drawHold(n, x, yH, yT, t) {
+  const wid = 30, halfW = wid / 2;
+  const jy = judgmentY(H);
+  const top = Math.min(yH, yT);
+  const bot = Math.min(Math.max(yH, yT), jy);
+  const bodyH = bot - top;
+  c2.save();
+  c2.shadowColor = '#f36cff';
+  c2.shadowBlur = 14;
+  const grad = c2.createLinearGradient(0, top, 0, bot);
+  grad.addColorStop(0, '#7a3dff');
+  grad.addColorStop(1, '#f36cff');
+  c2.fillStyle = grad;
+  if (bodyH > 0) {
+    roundRect(c2, x - halfW, top, wid, bodyH, 9);
+    c2.fill();
+  }
+  if (n.holding) {
+    const fTop = jy;
+    const fBot = bot;
+    if (fBot > fTop) {
+      c2.fillStyle = 'rgba(255,255,255,0.55)';
+      roundRect(c2, x - halfW + 2, fTop, wid - 4, fBot - fTop, 7);
+      c2.fill();
+    }
+  }
+  if (yH <= jy) {
+    const hw = noteLineW();
+    c2.fillStyle = '#fff';
+    roundRect(c2, x - hw / 2, yH - 9, hw, 18, 9);
+    c2.fill();
+    c2.fillStyle = '#f36cff';
+    roundRect(c2, x - hw / 2 + 4, yH - 5, hw - 8, 10, 5);
+    c2.fill();
+  }
+  c2.restore();
+}
+
+function drawNote(n, t) {
+  if (n.judged && n.grade !== 'miss') return;
+  if (n.judged && n.grade === 'miss') return;
+  const appear = n.t - APPROACH;
+  if (t < appear) return;
+  const jy = judgmentY(H), span = jy - spawnY();
+  if (n.type === 'tap') {
+    const y = jy - (n.t - t) / APPROACH * span;
+    if (y < -50 || y > H + 50) return;
+    drawTap(n.x * W, y);
+  } else {
+    const yH = jy - (n.t - t) / APPROACH * span;
+    const yT = jy - (n.t + n.dur - t) / APPROACH * span;
+    if (Math.min(yH, yT) > H + 60 || Math.max(yH, yT) < -60) return;
+    drawHold(n, n.x * W, yH, yT, t);
+  }
+}
+
+function drawGuides(t) {
+  const jy = judgmentY(H);
+  c2.save();
+  c2.strokeStyle = 'rgba(255,255,255,0.25)';
+  c2.lineWidth = 2;
+  for (const n of game.notes) {
+    if (n.judged) continue;
+    const d = Math.abs(n.t - t);
+    if (d <= 0.5 && d > WINDOW_G) {
+      c2.beginPath();
+      c2.arc(n.x * W, jy, 22, 0, 7);
+      c2.stroke();
+    }
+  }
+  c2.restore();
+}
+
+function drawHUD(t) {
+  c2.save();
+  c2.textAlign = 'right';
+  c2.font = 'bold 30px sans-serif';
+  c2.fillStyle = 'rgba(255,255,255,0.92)';
+  c2.shadowColor = '#38e8ff';
+  c2.shadowBlur = 10;
+  c2.fillText(String(Math.floor(game.score)), W - 22, 52);
+  c2.shadowBlur = 0;
+  c2.font = '17px sans-serif';
+  c2.fillStyle = 'rgba(255,255,255,0.55)';
+  c2.fillText(game.combo + ' 连击', W - 22, 84);
+  c2.textAlign = 'center';
+  if (game.combo >= 50 && game.combo % 50 === 0) {
+    c2.font = 'bold 44px sans-serif';
+    c2.fillStyle = 'rgba(255,213,74,' + (0.5 + 0.5 * Math.max(0, 1 - (t * 0.5 % 1))) + ')';
+    c2.fillText('x' + game.combo + '!', W / 2, H * 0.3);
+  }
+  c2.restore();
+}
+
+function draw(t, dt) {
+  c2.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const g = c2.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0a0e1e');
+  g.addColorStop(1, '#141a33');
+  c2.fillStyle = g;
+  c2.fillRect(0, 0, W, H);
+  c2.fillStyle = 'rgba(56,232,255,0.05)';
+  for (let i = 0; i < 26; i++) {
+    const px = (i * 97.3) % W;
+    const py = ((i * 53.7 + t * 24) % H);
+    c2.beginPath();
+    c2.arc(px, py, 1.6, 0, 7);
+    c2.fill();
+  }
+  drawJudgmentLine(t);
+  drawGuides(t);
+  drawDoubleHints(t);
+  for (const n of game.notes) drawNote(n, t);
+  drawFx(game && game.paused ? 0 : dt);
+  drawHUD(t);
+}
+
+function updateAndDraw(now, dt) {
+  requestAnimationFrame(loop);
+  if (!game) return;
+  const t = game.playing && !game.over ? songTime() : 0;
+  if (game.playing && !game.over) {
+    for (const n of game.notes) {
+      if (n.judged) continue;
+      if (n.type === 'tap' && t > n.t + WINDOW_G) markMiss(n);
+      else if (n.type === 'hold' && !n.holding && t > n.t + WINDOW_G) markMiss(n);
+    }
+    for (const half of ['L', 'R']) {
+      const h = game.activeHolds[half];
+      if (h && t >= h.t + h.dur) completeHold(h);
+    }
+    if (t > songDur + 2.5) {
+      game.playing = false;
+      game.over = true;
+      endGame();
+      return;
+    }
+  }
+  draw(t, dt);
+}
+
+let prevNow = 0;
+function loop(now) {
+  const dt = clamp((now - prevNow) / 1000, 0, 0.05) || 0.016;
+  prevNow = now;
+  updateAndDraw(now, dt);
+}
+requestAnimationFrame(loop);
+
+function endGame() {
+  const total = chart.reduce((s, n) => s + (n.type === 'hold' ? 1500 : 1000), 0);
+  const acc = total > 0 ? game.score / total * 100 : 100;
+  const rank = acc >= 95 ? 'S' : acc >= 90 ? 'A' : acc >= 80 ? 'B' : acc >= 70 ? 'C' : 'D';
+  const r = $('rank');
+  r.textContent = rank;
+  r.className = 'rank ' + rank;
+  $('rScore').textContent = Math.floor(game.score);
+  $('rCombo').textContent = game.maxCombo;
+  $('rAcc').textContent = acc.toFixed(1) + '%';
+  $('rCounts').textContent = game.perfect + ' / ' + game.good + ' / ' + game.miss;
+  $('pauseBtn').style.display = 'none';
+  $('pauseOverlay').hidden = true;
+  showScreen('result');
+}
+
+})();
+</script>
+</body>
+</html>
