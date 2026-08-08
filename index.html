@@ -130,7 +130,7 @@ kbd{background:#1a2348;border:1px solid #3a4a8a;border-radius:5px;padding:1px 7p
   <div class="help">
     <p><b>操作</b>：桌面用 <kbd>D</kbd>/<kbd>←</kbd> 打左半、<kbd>K</kbd>/<kbd>→</kbd> 打右半，也可用鼠标直接点音符；双押同时按两键即可。手机触屏直接点击 / 按住音符，可双手双押。</p>
     <p><b>音符</b>：<span class="n-tap"></span> 点按　<span class="n-hold"></span> 长按（头到判定线时按住，条尾到达前别松手，中途松手=断连）　双押时会出现金色连线与"双押"提示</p>
-    <p style="opacity:.55;margin-top:10px">流光音轨 v1.4　·　如遇异常会在屏幕下方显示错误信息</p>
+    <p style="opacity:.55;margin-top:10px">流光音轨 v1.5　·　如遇异常会在屏幕下方显示错误信息</p>
   </div>
 </div>
 
@@ -299,60 +299,52 @@ function detectBPM(buffer, od) {
   const frames = od.frames, frameRate = od.frameRate, o = od.onset;
   if (frames < 200) return { bpm: null, offset: 0 };
   const minBpm = 70, maxBpm = 200;
-  const minLag = frameRate * 60 / maxBpm, maxLag = frameRate * 60 / minBpm;
-  let bestLag = 0, bestScore = -1;
-  for (let lag = Math.max(4, Math.floor(minLag)); lag <= Math.ceil(maxLag); lag++) {
-    let s = 0;
-    for (let j = 0; j < frames - lag; j++) s += o[j] * o[j + lag];
-    s /= (frames - lag);
-    if (s > bestScore) { bestScore = s; bestLag = lag; }
-  }
-  if (!bestLag) return { bpm: null, offset: 0 };
-  const bpm = frameRate * 60 / bestLag;
-  const scoreBpm = (bp) => {
+  const sample = f => {
+    const fi = Math.floor(f);
+    const frac = f - fi;
+    const v0 = fi >= 0 && fi < frames ? o[fi] : 0;
+    const v1 = fi + 1 < frames ? o[fi + 1] : v0;
+    return v0 + (v1 - v0) * frac;
+  };
+  const scoreBpm = (bp, phaseSteps) => {
     const bf = frameRate * 60 / bp;
     const beats = Math.max(1, Math.floor(frames / bf));
     let best = -1;
-    const steps = 24;
-    for (let oi = 0; oi < steps; oi++) {
-      const off = (oi / steps) * bf;
+    for (let oi = 0; oi < phaseSteps; oi++) {
+      const off = (oi / phaseSteps) * bf;
       let s = 0;
-      for (let f = off, k = 0; k < beats; k++, f += bf) {
-        const fi = Math.round(f);
-        if (fi >= 0 && fi < frames) s += o[fi];
-      }
+      for (let f = off, k = 0; k < beats; k++, f += bf) s += sample(f);
       s /= beats;
       if (s > best) best = s;
     }
     return best;
   };
-  const cands = [bpm, bpm / 2, bpm * 2, bpm / 4, bpm * 4];
-  const scored = [];
-  for (const c of cands) {
-    if (c >= minBpm && c <= maxBpm) scored.push({ c, sc: scoreBpm(c) });
+  const cands = [];
+  for (let bp = minBpm; bp <= maxBpm; bp += 0.5) {
+    cands.push({ bp, sc: scoreBpm(bp, 16) });
   }
-  if (!scored.length) return { bpm: null, offset: 0 };
-  scored.sort((a, b) => b.sc - a.sc);
-  let best = scored[0].c;
-  if (scored.length > 1 && scored[1].sc > scored[0].sc * 0.94) {
-    const comf = scored.filter(s => s.c >= 95 && s.c <= 165);
-    if (comf.length) best = comf[0].c;
+  cands.sort((a, b) => b.sc - a.sc);
+  let pick = cands[0].bp;
+  const comf = cands.filter(c => c.bp >= 90 && c.bp <= 175 && c.sc >= cands[0].sc * 0.85);
+  if (comf.length) pick = comf[0].bp;
+  let best = pick, bestSc = -1;
+  for (let bp = pick - 1; bp <= pick + 1 + 1e-9; bp += 0.05) {
+    if (bp < minBpm || bp > maxBpm) continue;
+    const sc = scoreBpm(bp, 32);
+    if (sc > bestSc) { bestSc = sc; best = bp; }
   }
   const bf = frameRate * 60 / best;
-  let bestOff = 0, bestS = -1;
-  const steps = 48;
   const beats = Math.max(1, Math.floor(frames / bf));
+  const steps = 240;
+  let bestOff = 0, bestS = -1;
   for (let oi = 0; oi < steps; oi++) {
     const off = (oi / steps) * bf;
     let s = 0;
-    for (let f = off, k = 0; k < beats; k++, f += bf) {
-      const fi = Math.round(f);
-      if (fi < frames) s += o[fi];
-    }
+    for (let f = off, k = 0; k < beats; k++, f += bf) s += sample(f);
     s /= beats;
     if (s > bestS) { bestS = s; bestOff = off; }
   }
-  return { bpm: best, offset: bestOff / frameRate };
+  return { bpm: Math.round(best * 10) / 10, offset: bestOff / frameRate };
 }
 
 function computeAccents(od, bpm, offset, dur) {
