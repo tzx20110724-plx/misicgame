@@ -129,8 +129,8 @@ kbd{background:#1a2348;border:1px solid #3a4a8a;border-radius:5px;padding:1px 7p
   </div>
   <div class="help">
     <p><b>操作</b>：桌面用 <kbd>D</kbd>/<kbd>←</kbd> 打左半、<kbd>K</kbd>/<kbd>→</kbd> 打右半，也可用鼠标直接点音符；双押同时按两键即可。手机触屏直接点击 / 按住音符，可双手双押。</p>
-    <p><b>音符</b>：<span class="n-tap"></span> 点按　<span class="n-hold"></span> 长按（头到判定线时按住，条尾到达前别松手，中途松手=断连）　双押时会出现金色连线与"双押"提示</p>
-    <p style="opacity:.55;margin-top:10px">流光音轨 v1.5　·　如遇异常会在屏幕下方显示错误信息</p>
+    <p><b>音符</b>：<span class="n-tap"></span> 点按　<span class="n-hold"></span> 长按（头到判定线时按住，条尾到达前别松手，中途松手=断连）　双押时会出现金色连线提示</p>
+    <p style="opacity:.55;margin-top:10px">流光音轨 v1.6　·　如遇异常会在屏幕下方显示错误信息</p>
   </div>
 </div>
 
@@ -950,7 +950,8 @@ function spawnFx(n, kind, grade) {
     const txt = kind === 'miss' ? 'Miss' : '断连';
     game.fx.push({ type: 'text', x, y: y - 34, text: txt, color: '#ff6b6b', vx: 0, vy: 70, life: 0.8 });
   } else if (kind === 'hold') {
-    game.fx.push({ type: 'text', x, y: y - 44, text: '长按完成', color: '#c8a2ff', vx: 0, vy: 45, life: 0.9 });
+    const txt = grade === 'perfect' ? 'Perfect!' : 'Good';
+    game.fx.push({ type: 'text', x, y: y - 44, text: txt, color: '#c8a2ff', vx: 0, vy: 45, life: 0.9 });
   }
 }
 
@@ -1043,10 +1044,6 @@ function drawDoubleHints(t) {
       c2.moveTo(x2, y);
       c2.lineTo(x2, y + 13);
       c2.stroke();
-      c2.font = 'bold 20px sans-serif';
-      c2.textAlign = 'center';
-      c2.fillStyle = '#ffd54a';
-      c2.fillText('双押', (x1 + x2) / 2, y - 12);
       c2.restore();
       return;
     }
